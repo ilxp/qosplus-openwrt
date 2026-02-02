@@ -49,9 +49,6 @@ jobs:
         python3-setuptools rsync swig unzip zlib1g-dev file wget \
         llvm python3-pyelftools libpython3-dev aria2 jq qemu-utils ccache rename \
         libelf-dev device-tree-compiler libgmp3-dev libmpc-dev libfuse-dev libtool \
-        #安装ndpi依赖
-        sudo -E apt-get -qq install autoconf pkg-config libpcap-dev libxtables-dev libip6tc-dev libip4tc-dev libjson-c-dev
-
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "Asia/Shanghai"
@@ -126,14 +123,13 @@ jobs:
         rm -rf ./ipk/
         mkdir -p ./ipk
         rm -rf $(find ./bin/targets/ -type d -name "packages")
-        cp -rf $(find ./bin/packages/ -type f -name "iptables-mod-ndpi.ipk") ./ipk/
-        cp -rf $(find ./bin/packages/ -type f -name "kmod-ipt-ndpi.ipk") ./ipk/
-                
+        cp -rf $(find ./bin/packages/ -type f -name "*qosplus*.ipk") ./ipk/
+     
     - name: Create release
       id: create_release
       uses: ncipollo/release-action@main
       with:
-        name: ndpi-ipk
+        name: qosplus
         allowUpdates: true
         prerelease: false
         tag: ipk
