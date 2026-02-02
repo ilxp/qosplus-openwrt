@@ -69,20 +69,20 @@ jobs:
         sudo mkdir -p -m 777 /mnt/openwrt/build_dir openwrt/staging_dir
         ln -sf /mnt/openwrt/build_dir openwrt/build_dir
         sudo ln -sf openwrt/staging_dir /mnt/openwrt/staging_dir
-        
-    - name: Install Feeds
-      working-directory: ${{ github.workspace }}/openwrt
-      run: |
-          ./scripts/feeds clean
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a   
-          
+
     - name: Prepare ipk
       working-directory: ${{ github.workspace }}/openwrt
       run: |
           cp -r ../ipk.sh ./
           chmod 0755 ipk.sh
           /bin/bash ipk.sh
+          
+    - name: Install Feeds
+      working-directory: ${{ github.workspace }}/openwrt
+      run: |
+          ./scripts/feeds clean
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a   
   
     - name: import config
       working-directory: ${{ github.workspace }}/openwrt
