@@ -1,0 +1,78 @@
+# QoSPlus 配置用于 OpenWrt
+
+# INTERFACES: 定义网络接口配置
+config interface wan
+	option classgroup  "Default"  # 指定该接口使用的类组为 "Default"
+	option enabled      0         # 是否启用该接口，0 表示禁用，1 表示启用
+	option upload       128       # 上传带宽限制，单位为 kbps
+	option download     1024      # 下载带宽限制，单位为 kbps
+
+# RULES: 定义流量分类规则
+config classify
+	option target       "Priority"  # 将匹配的流量分类为 "Priority" 类
+	option ports        "22,53"     # 匹配的端口号，这里为 SSH (22) 和 DNS (53)
+	option comment      "ssh, dns"  # 注释，说明该规则对应的应用
+
+config classify
+	option target       "Normal"    # 将匹配的流量分类为 "Normal" 类
+	option proto        "tcp"       # 匹配的协议类型，这里为 TCP
+	option ports        "20,21,25,80,110,443,993,995"  # 匹配的端口号，包括 FTP, SMTP, HTTP(S), IMAP
+	option comment      "ftp, smtp, http(s), imap"     # 注释，说明该规则对应的应用
+
+config classify
+	option target       "Express"   # 将匹配的流量分类为 "Express" 类
+	option ports        "5190"      # 匹配的端口号，这里为 AOL, iChat, ICQ
+	option comment      "AOL, iChat, ICQ"             # 注释，说明该规则对应的应用
+
+config default
+	option target       "Express"   # 默认将未分类的 UDP 流量分类为 "Express" 类
+	option proto        "udp"       # 匹配的协议类型，这里为 UDP
+	option pktsize      "-500"      # 匹配的数据包大小，这里为小于 500 字节
+
+config reclassify
+	option target       "Priority"  # 将匹配的 ICMP 流量重新分类为 "Priority" 类
+	option proto        "icmp"      # 匹配的协议类型，这里为 ICMP
+
+config default
+	option target       "Bulk"      # 默认将未分类的流量分类为 "Bulk" 类
+	option portrange    "1024-65535"  # 匹配的端口范围，这里为 1024 到 65535
+
+# 不要更改下面的内容，除非你真的知道它的含义 :)
+
+# 定义类组 "Default"，包含多个类
+config classgroup "Default"
+	option classes      "Priority Express Normal Bulk"  # 该类组包含的类名
+	option default      "Normal"                        # 该类组的默认类为 "Normal"
+
+# 定义类 "Priority"，用于高优先级流量
+config class "Priority"
+	option packetsize  400          # 该类的数据包大小，单位为字节
+	option avgrate     10           # 该类的平均速率，单位为 kbps
+	option priority    20           # 该类的优先级，数值越高优先级越高
+
+# 定义类 "Priority_down"，用于高优先级下行流量
+config class "Priority_down"
+	option packetsize  1000         # 该类的数据包大小，单位为字节
+	option avgrate     10           # 该类的平均速率，单位为 kbps
+
+# 定义类 "Express"，用于快速传输流量
+config class "Express"
+	option packetsize  1000         # 该类的数据包大小，单位为字节
+	option avgrate     50           # 该类的平均速率，单位为 kbps
+	option priority    10           # 该类的优先级，数值越高优先级越高
+
+# 定义类 "Normal"，用于普通流量
+config class "Normal"
+	option packetsize  1500         # 该类的数据包大小，单位为字节
+	option packetdelay  100          # 该类的数据包延迟，单位为毫秒
+	option avgrate     10           # 该类的平均速率，单位为 kbps
+	option priority    5            # 该类的优先级，数值越高优先级越高
+
+# 定义类 "Normal_down"，用于普通下行流量
+config class "Normal_down"
+	option avgrate     20           # 该类的平均速率，单位为 kbps
+
+# 定义类 "Bulk"，用于大容量传输流量
+config class "Bulk"
+	option avgrate     1            # 该类的平均速率，单位为 kbps
+	option packetdelay  200          # 该类的数据包延迟，单位为毫秒

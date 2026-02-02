@@ -1,0 +1,48 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org
+
+# START=50
+# 服务启动优先级，数值越小启动越早，50表示中等优先级
+
+# USE_PROCD=1
+# 启用procd进程管理框架，用于服务的监控和管理
+
+# 验证QoS配置段的函数
+validate_qos_section()
+{
+	# 使用uci_validate_section命令验证qos配置文件中interface段的参数
+	# ${1} - 传入的配置段名称
+	# enabled:bool - 验证enabled字段是否为布尔值(0/1)
+	# upload:uinteger - 验证upload字段是否为无符号整数(上传带宽)
+	# download:uinteger - 验证download字段是否为无符号整数(下载带宽)
+	uci_validate_section qosplus interface "${1}" \
+		'enabled:bool' \
+		'upload:uinteger' \
+		'download:uinteger'
+}
+
+# 定义服务触发器的函数，当相关配置变更时自动执行
+service_triggers()
+{
+	# 添加配置重载触发器，当"qosplus"配置变更时触发重载
+	procd_add_reload_trigger "qosplus"
+	
+	# 添加配置验证函数，在配置加载时进行验证
+	procd_add_validation validate_qos_section
+	
+	# 立即启动QoS服务
+	qosplus-start
+}
+
+# 启动服务的函数
+start_service() {
+	# 调用qosplus的启动脚本启动QoS增强服务
+	qosplus-start
+}
+
+# 重载服务的函数
+reload_service() {
+	# 重新加载服务配置，实际上也是调用启动函数
+	# 因为QoS服务通常需要在配置变更后重启生效
+	qosplus-start
+}

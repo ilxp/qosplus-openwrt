@@ -1,0 +1,4 @@
+#!/bin/sh
+
+qosplus-stop
+/usr/lib/qosplus/generate.sh all | sh
