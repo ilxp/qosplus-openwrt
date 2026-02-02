@@ -25,5 +25,17 @@ if [[ $# -lt 3 ]]; then
 	cd "$rootdir"
 }
 
-#ndpi
+#修改feeds.conf.default
+sed -i 's/src-git/#src-git/g' feeds.conf.default
+#添加为github的库
+sed -i '$asrc-git packages https://github.com/openwrt/packages.git;openwrt-24.10' feeds.conf.default
+sed -i '$asrc-git luci https://github.com/openwrt/luci.git;openwrt-24.10' feeds.conf.default
+sed -i '$asrc-git routing https://github.com/openwrt/routing.git;openwrt-24.10' feeds.conf.default
+sed -i '$asrc-git telephony https://github.com/openwrt/telephony.git;openwrt-24.10' feeds.conf.default
+
+# 更新 Feeds
+#./scripts/feeds update -a
+#./scripts/feeds install -a
+
+#
 merge_package main https://github.com/ilxp/qosplus-openwrt.git  package/new qosplus-scripts
