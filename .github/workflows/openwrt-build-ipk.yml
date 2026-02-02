@@ -122,8 +122,7 @@ jobs:
       run: |
         rm -rf ./ipk/
         mkdir -p ./ipk
-        rm -rf $(find ./bin/targets/ -type d -name "packages")
-        cp -rf $(find ./bin/packages/ -type f -name "*qosplus*.ipk") ./ipk/
+        find openwrt/bin/packages/*/*  -name "*qosplus*" | xargs -i mv -f {} ipk/
      
     - name: Create release
       id: create_release
