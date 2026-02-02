@@ -1,0 +1,151 @@
+name: build-ipk
+
+on:
+#  schedule:
+#    - cron: 5 6 * * 0
+  workflow_dispatch:
+  #watch:
+    #types: started
+    
+env:
+  REPO_TOKEN: ${{ secrets.workflow_token }}
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.event.repository.owner.id == github.event.sender.id
+    
+    name: Build ${{matrix.target}}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64]
+        
+    steps:
+    - name: Checkout
+      uses: actions/checkout@main
+      with:
+          fetch-depth: 0
+          
+    - name: Free disk space
+      uses: coder-xiaomo/free-disk-space@main
+      with:
+        tool-cache: false
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
+
+    - name: Initialization environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qq install build-essential clang flex bison g++ gawk \
+        gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev \
+        python3-setuptools rsync swig unzip zlib1g-dev file wget \
+        llvm python3-pyelftools libpython3-dev aria2 jq qemu-utils ccache rename \
+        libelf-dev device-tree-compiler libgmp3-dev libmpc-dev libfuse-dev libtool \
+        #安装ndpi依赖
+        sudo -E apt-get -qq install autoconf pkg-config libpcap-dev libxtables-dev libip6tc-dev libip4tc-dev libjson-c-dev
+
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "Asia/Shanghai"
+        sudo -E git config --global user.name 'GitHub Actions'
+        git config --global user.email 'noreply@github.com'
+        sudo -E git config --global core.abbrev auto
+        df -h
+          
+    - name: clone openwrt
+      run: |
+        #sudo chown -R runner:runner /home/runner/work/OprX-oR-gargoyle-YAOF
+        git clone --single-branch -b v24.10.5 https://github.com/openwrt/openwrt openwrt
+        
+    - name: Free up disk space
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo mkdir -p -m 777 /mnt/openwrt/build_dir openwrt/staging_dir
+        ln -sf /mnt/openwrt/build_dir openwrt/build_dir
+        sudo ln -sf openwrt/staging_dir /mnt/openwrt/staging_dir
+        
+    - name: Install Feeds
+      working-directory: ${{ github.workspace }}/openwrt
+      run: |
+          ./scripts/feeds clean
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a   
+          
+    - name: Prepare ipk
+      working-directory: ${{ github.workspace }}/openwrt
+      run: |
+          cp -r ../ipk.sh ./
+          chmod 0755 ipk.sh
+          /bin/bash ipk.sh
+  
+    - name: import config
+      working-directory: ${{ github.workspace }}/openwrt
+      run: |
+          cp -rf ../ipk.config .config
+
+    - name: make config
+      working-directory: ${{ github.workspace }}/openwrt
+      run: |
+          #cd openwrt
+          make defconfig
+        
+    - name: Make Download
+      working-directory: ${{ github.workspace }}/openwrt
+      run: |
+        make download -j50
+        
+    - name: Compile Openwrt
+      working-directory: ${{ github.workspace }}/openwrt
+      id: compileopenwrt
+      continue-on-error: true
+      run: |
+        #echo | make kernel_oldconfig -j$(($(nproc) + 1)) 
+        GNORE_ERRORS=1 make -j$(($(nproc) + 1))
+        echo $?
+
+    - name: If Error
+      working-directory: ${{ github.workspace }}/openwrt
+      if: steps.compileopenwrt.outcome == 'failure'
+      run: |
+        cat ./.config
+        echo '================================================================'
+        make -j1 V=s
+        
+    - name: Organize ipk
+      id: organize
+      run: |
+        rm -rf ./ipk/
+        mkdir -p ./ipk
+        rm -rf $(find ./bin/targets/ -type d -name "packages")
+        cp -rf $(find ./bin/packages/ -type f -name "iptables-mod-ndpi.ipk") ./ipk/
+        cp -rf $(find ./bin/packages/ -type f -name "kmod-ipt-ndpi.ipk") ./ipk/
+                
+    - name: Create release
+      id: create_release
+      uses: ncipollo/release-action@main
+      with:
+        name: ndpi-ipk
+        allowUpdates: true
+        prerelease: false
+        tag: ipk
+        commit: "main"  #对应分支
+        replacesArtifacts: true
+        token: ${{ secrets.workflow_token }}
+        artifacts: ./ipk/*
+        
+    - name: Print Disk Space After
+      run: df -h
+      
+    - name: Cleaning
+      run: |
+        cd openwrt/bin/targets/x86/64
+        /bin/bash ../../../../../SCRIPTS/06_cleaning.sh

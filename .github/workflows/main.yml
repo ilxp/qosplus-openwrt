@@ -1,0 +1,58 @@
+name: Build ndpi-netfilter for OpenWrt
+
+on:
+  #push:
+    #branches:
+      #- main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build ndpi-netfilter
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@main
+        
+      - name: Download OpenWrt SDK
+        run: |
+          wget https://downloads.openwrt.org/releases/23.05.6/targets/x86/64/openwrt-sdk-23.05.6-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+          #wget https://downloads.openwrt.org/releases/21.02.7/targets/x86/64/openwrt-sdk-21.02.7-x86-64_gcc-8.4.0_musl.Linux-x86_64.tar.xz
+          tar -xf openwrt-sdk-*.tar.xz
+          SDK_DIR=$(find . -maxdepth 1 -type d -name "openwrt-sdk*" | head -n 1)
+          echo "SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
+          
+      - name: install libcap
+        run: |
+         wget https://git.kernel.org/pub/scm/libs/libcap/libcap.git/snapshot/libcap-2.77.tar.gz
+         tar -xvf libcap-2.77.tar.gz
+         cd libcap-2.77
+         make
+         sudo chmod a+w /usr/include
+         sudo chmod a+w /lib64/
+         mkdir -p -m 0755 /lib64/pkgconfig
+         sudo chmod a+w /lib64/pkgconfig/
+         sudo chmod a+w /sbin/
+         make install
+
+      - name: Link ndpi-netfilter package
+        run: |
+          ln -s $(pwd)/ndpi-netfilter2 ${{ env.SDK_DIR }}/package/ndpi-netfilter2
+
+      - name: Enable iptables-mod-ndpi in config
+        run: |
+          cd ${{ env.SDK_DIR }}
+          echo "CONFIG_PACKAGE_iptables-mod-ndpi=y" >> .config
+          make defconfig
+
+      - name: Build package
+        run: |
+          cd ${{ env.SDK_DIR }}
+          make package/ndpi-netfilter2/compile V=s -j$(nproc)
+
+      - name: Upload .ipk
+        uses: actions/upload-artifact@v4
+        with:
+          name: iptables-mod-ndpi-ipk
+          path: ${{ env.SDK_DIR }}/bin/packages
